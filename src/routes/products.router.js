@@ -1,49 +1,22 @@
 import { Router }  from "express";
 import uploader from "../middlewares/uploader.js";
-import fileSystem from "fs";
-
+import ProductsManager from "../managers/productsManager.js";
 const router = Router();
+const PATH = "src/files/products.json";
+const productsManager = new ProductsManager(PATH)
 
-const loadProducts = () => {
-  if (fileSystem.existsSync('./products.json')){
-    const data = fileSystem.readFileSync('./products.json', 'utf-8');
-    return JSON.parse(data)
-  } else {
-    return  [
-        {"id": 1 , "name": "spray fijador", "quantity": 7, "price": 20},
-        {"id": 2 , "name": "Paleta de sombras", "quantity": 5, "price": 70},
-        {"id": 3 , "name": "Base", "quantity": 3, "price": 50},
-        {"id": 4 , "name": "Mascara", "quantity": 21, "price": 15}
-      ]
-    }
-  }
-
-const saveProducts = (products) => {
-    fileSystem.writeFileSync('./products.json', JSON.stringify(products, null, 2))
-}
-const deleteProductById = (productId) => {
-  const index = products.findIndex(p => p.id === productId);
-  if (index !== -1) {
-    products.splice(index, 1);
-    saveProducts(products);
-    return true;
-  }
-  return false;
-}
-
-
-let products = loadProducts()
-
-router.get('/',(req,res)=>{
-    const limit = parseInt(req.query.limit); 
-
-    if (!isNaN(limit) && limit > 0) {
+router.get('/', async (req, res) => {
+  const products = await productsManager.loadProducts();
+  const limit = parseInt(req.query.limit);
+  console.log(products)
+  if (!isNaN(limit) && limit > 0) {
       res.json(products.slice(0, limit));
-    } else {
+  } else {
       res.json(products);
-    }
-})
-router.get('/:pid',(req, res)=>{
+  }
+});
+router.get('/:pid', async (req, res)=>{
+  const products = await productsManager.loadProducts();
     const pid = req.params.pid;
     const productId = parseInt(pid);
     const product = products.find(p=>p.id === productId)
@@ -55,7 +28,9 @@ router.get('/:pid',(req, res)=>{
     res.send(product);
 })
 
-router.post('/',uploader.single('data'),(req,res)=>{
+router.post('/',uploader.single('data'), async (req,res)=>{
+  try {
+  const products = await productsManager.loadProducts();
   console.log(req.file)
   console.log(req.body);
   const newProduct = ({
@@ -69,13 +44,18 @@ router.post('/',uploader.single('data'),(req,res)=>{
     stock:parseInt(req.body.stock),
     category:req.body.category
   })
-  products.push(newProduct)
-  res.send("Producto agregado");
-  console.log(products)
-  saveProducts(products)
-})
+  products.push(newProduct);
+  await productsManager.saveProducts(products);
 
- router.put('/:pid', uploader.single('data'),(req, res)=>{
+  res.send("Producto agregado");
+  console.log(products);
+} catch (error) {
+  res.status(500).send({ status: "error", error: error.message });
+}
+});
+
+ router.put('/:pid', uploader.single('data'),async (req, res)=>{
+  const products = await productsManager.loadProducts();
   const pid = req.params.pid;
   const productId = parseInt(pid);
   const productIndex = products.findIndex(p=>p.id === productId)
@@ -94,16 +74,16 @@ router.post('/',uploader.single('data'),(req,res)=>{
     category: req.body.category
   };
 
-  saveProducts(products);
+  await productsManager.saveProducts(products);
 
   res.send(products[productIndex]);
  
 })
 
-  router.delete('/:pid', (req, res) => {
+  router.delete('/:pid', async (req, res) => {
   const pid = req.params.pid;
   const productId = parseInt(pid);
-  const deleted = deleteProductById(productId);
+  const deleted = await productsManager.deleteProductById(productId);
   if (deleted) {
     res.send({ status: "success", message: "Producto eliminado correctamente" });
   } else {

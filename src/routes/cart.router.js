@@ -1,11 +1,16 @@
 import { Router } from "express";
 import fileSystem from "fs";
 import CartManager from "../managers/cartManager.js";
+import ProductsManager from "../managers/productsManager.js";
 
+const productsPath = "src/files/products.json"
+const cartPath = "src/files/carts.json";
 const router = Router();
-const cartManager = new CartManager('./carts.json');
-const loadProducts = () => {
-    if (fileSystem.existsSync('./products.json')) {
+const cartManager = new CartManager(cartPath);
+const productsManager = new ProductsManager(productsPath)
+
+/*const loadProducts = () => {
+    if (fileSystem.existsSync(PATH)) {
         const data = fileSystem.readFileSync('./products.json', 'utf-8');
         return JSON.parse(data);
     } else {
@@ -16,7 +21,7 @@ const loadProducts = () => {
             { "id": 4, "name": "Mascara", "quantity": 21, "price": 15 }
         ];
     }
-}
+} */
 
 router.post('/', async (req, res) => {
     const carts = await cartManager.loadCarts();
@@ -43,7 +48,7 @@ router.get('/:cid', async (req, res) => {
 
 router.post('/:cid/product/:pid', async (req, res) => {
     const carts = await cartManager.loadCarts();
-    const products = loadProducts();
+    const products = await productsManager.loadProducts();
     const cartId = parseInt(req.params.cid);
     const productId = parseInt(req.params.pid);
 
